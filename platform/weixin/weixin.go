@@ -85,6 +85,7 @@ func resetPushBudgetExceededCounter() {
 type replyContext struct {
 	peerUserID   string
 	contextToken string
+	inbound      bool // true only for a context created by dispatchInbound
 }
 
 // Platform implements core.Platform for Weixin personal chat via the ilink bot HTTP API
@@ -583,7 +584,7 @@ func (p *Platform) dispatchInbound(ctx context.Context, m *weixinMessage, h core
 		return
 	}
 
-	rc := &replyContext{peerUserID: from, contextToken: strings.TrimSpace(m.ContextToken)}
+	rc := &replyContext{peerUserID: from, contextToken: strings.TrimSpace(m.ContextToken), inbound: true}
 	msgID := fmt.Sprintf("%d", m.MessageID)
 	if m.MessageID == 0 {
 		msgID = randomHex(8)
@@ -641,10 +642,13 @@ func (p *Platform) Reply(ctx context.Context, replyCtx any, content string) erro
 	return p.sendChunks(ctx, replyCtx, content, sendPathReply)
 }
 
-// Send proactively pushes a message to the user (cron / timer / Relay). Pushes
-// count against the burst budget because ilink DOES throttle proactive sends
-// (see #1643 / #1742).
+// Send is also used by the engine for agent replies and progress. Classify by
+// context origin, not method name: reconstructed cron/timer/Relay contexts
+// remain pushes even when they contain a cached user context token.
 func (p *Platform) Send(ctx context.Context, replyCtx any, content string) error {
+	if rc, ok := replyCtx.(*replyContext); ok && rc != nil && rc.inbound {
+		return p.Reply(ctx, replyCtx, content)
+	}
 	return p.sendChunks(ctx, replyCtx, content, sendPathPush)
 }
 

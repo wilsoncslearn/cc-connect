@@ -3,6 +3,8 @@ package codex
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/chenhg5/cc-connect/core"
+	_ "modernc.org/sqlite"
 )
 
 // resolveCodexHomeDir returns the effective CODEX_HOME directory.
@@ -327,6 +330,12 @@ func getSessionHistory(sessionID, codexHome string, limit int) ([]core.HistoryEn
 // so that source="cli" and originator="codex_cli_rs", making the session visible
 // in the interactive `codex` terminal.
 func patchSessionSource(sessionID, codexHome string) {
+	// Current Codex clients use SQLite. Keep indexed rollout byte offsets intact:
+	// changing the first line's length corrupts paginated history offsets.
+	if _, err := os.Stat(filepath.Join(resolveCodexHomeDir(codexHome), "state_5.sqlite")); err == nil {
+		patchSessionIndexSource(sessionID, codexHome)
+		return
+	}
 	path := findSessionFile(sessionID, codexHome)
 	if path == "" {
 		return
@@ -378,4 +387,28 @@ func isUserPrompt(text string) bool {
 		return false
 	}
 	return true
+}
+
+// patchSessionIndexSource preserves all history and desktop settings; only the
+// exec source classification needs to match the existing rollout compatibility patch.
+func patchSessionIndexSource(sessionID, codexHome string) {
+	path := filepath.Join(resolveCodexHomeDir(codexHome), "state_5.sqlite")
+	if _, err := os.Stat(path); err != nil {
+		return // Older Codex installations have no session index database.
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		slog.Warn("codex: open session index", "error", err)
+		return
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err = db.ExecContext(ctx, "PRAGMA busy_timeout = 1500"); err == nil {
+		_, err = db.ExecContext(ctx, "UPDATE threads SET source = 'cli' WHERE id = ? AND source = 'exec'", sessionID)
+	}
+	if err != nil {
+		slog.Warn("codex: update session visibility", "session_id", sessionID, "error", err)
+	}
 }
