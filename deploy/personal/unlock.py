@@ -219,7 +219,7 @@ def desktop_action(action, row, current=None):
     command = [str(Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'),
                '-NoLogo', '-NoProfile', '-NonInteractive', '-File', str(script)]
     data = {'action': action, 'title': row['name'] or row['title'],
-            'project': resolved_path(Path(row['cwd'])).name,
+            'project': os.environ.get('CC_UNLOCK_DESKTOP_PROJECT', '').strip() or resolved_path(Path(row['cwd'])).name,
             'owner_pid': current['pid'] if current else None,
             'owner_start': current['start'] if current else None}
     result = subprocess.run(command, input=json.dumps(data, ensure_ascii=True),

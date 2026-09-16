@@ -74,6 +74,16 @@ class RecoveryTest(unittest.TestCase):
         self.set_archived(action == 'archive')
         if action == 'archive': self.api.busy = False
 
+    def test_desktop_project_label_override_is_passed_as_data(self):
+        row = u.thread_row(self.home, TID)
+        label = "Renamed project ' ; not a command"
+        for configured, expected in [(label, label), ('', self.workspace.name)]:
+            with self.subTest(configured=configured), patch.dict(os.environ, {'CC_UNLOCK_DESKTOP_PROJECT': configured}), \
+                    patch.object(u.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '{"action":"archive"}', '')) as run:
+                u.desktop_action('archive', row, {'pid': 71, 'start': 900})
+                self.assertEqual(json.loads(run.call_args.kwargs['input'])['project'], expected)
+                self.assertNotIn(label, ' '.join(run.call_args.args[0]))
+
     def test_one_command_archives_restores_and_verifies_without_killing(self):
         with patch.object(u, 'desktop_action', side_effect=self.mock_desktop) as action:
             result = self.run_command([])
