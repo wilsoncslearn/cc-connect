@@ -1,0 +1,28 @@
+# Shared YOLO settings. All machine values are resolved from local environment.
+# WARNING: no Codex sandbox or approval prompts.
+language = "zh"
+[log]
+level = "info"
+[[projects]]
+name = "personal-assistant"
+[projects.agent]
+type = "codex"
+[projects.agent.options]
+mode = "yolo"
+backend = "exec"
+work_dir = "${CC_WORK_DIR}"
+cmd = ["${CC_CODEX_CMD}"]
+[[projects.platforms]]
+type = "weixin"
+[projects.platforms.options]
+token = "${CC_WEIXIN_TOKEN}"
+allow_from = "${CC_WEIXIN_USER_ID}"
+account_id = "${CC_WEIXIN_ACCOUNT_ID}"
+base_url = "${CC_WEIXIN_BASE_URL}"
+proxy = "${CC_WEIXIN_PROXY}"
+[[projects.platforms]]
+type = "telegram"
+[projects.platforms.options]
+token = "${CC_TELEGRAM_TOKEN}"
+allow_from = "${CC_TELEGRAM_USER_ID}"
+proxy = "${CC_TELEGRAM_PROXY}"

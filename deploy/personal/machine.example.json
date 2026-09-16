@@ -1,0 +1,12 @@
+{
+  "CC_WORK_DIR": "",
+  "CC_CODEX_CMD": "",
+  "CC_WEIXIN_TOKEN": "",
+  "CC_WEIXIN_USER_ID": "",
+  "CC_WEIXIN_ACCOUNT_ID": "default",
+  "CC_WEIXIN_BASE_URL": "https://ilinkai.weixin.qq.com",
+  "CC_WEIXIN_PROXY": "",
+  "CC_TELEGRAM_TOKEN": "",
+  "CC_TELEGRAM_USER_ID": "",
+  "CC_TELEGRAM_PROXY": ""
+}

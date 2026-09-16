@@ -11,7 +11,7 @@
 ## 不属于源码改动
 
 - 微信与 Telegram 接入、`yolo` 权限模式原版已支持。
-- 本机启用 `mode = "yolo"`、原生 Codex 可执行文件路径、代理、开机启动及账号配置属于部署设置，未提交到仓库；克隆本仓库不会自动启用本机的 YOLO 设置。
+- `deploy/personal/` 新增共享的 YOLO 配置模板和 Windows 部署脚本，详见该目录的 `README.zh-CN.md`。各电脑的路径、代理及账号凭据放在仓库外的 `machine.local.json`，不提交；克隆本仓库不会自动启动服务。
 - 历史迁移、备份及归档后恢复任务的操作属于本机修复，不是新增的自动同步功能。
 - 不包含运行配置、Bot Token、登录凭据、聊天记录或本机编译的可执行文件。
 
@@ -32,3 +32,5 @@ go test ./agent/codex ./platform/weixin ./platform/telegram -count=1
 - 上述三个模块的定向回归测试通过。
 - `go build -tags 'no_web,goolm' ./cmd/cc-connect` 通过。
 - 默认 `go test ./...` 未通过：缺少 Web 前端 `dist` 产物、部分测试依赖 Unix 命令/脚本或符号链接行为，且一次依赖下载超时；不能视为全量测试通过。
+
+- 个人部署补充验证：PowerShell 7 / Windows PowerShell 5.1 离线脚本检查、临时目录编译及命令参数定向测试通过。`config` 包另有两项既有 Windows 路径测试失败（HOME 与 USERPROFILE、路径分隔符差异），未修改这些无关测试。
