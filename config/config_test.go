@@ -3474,3 +3474,28 @@ func TestRemoveGlobalProvider_CleansUpProviderRefs(t *testing.T) {
 		t.Errorf("proj2 provider_refs: want [], got %v", refs2)
 	}
 }
+
+func TestCommandConfig_ScopedExecRoundTrip(t *testing.T) {
+	var cfg Config
+	if _, err := toml.Decode(`[[commands]]
+name = "recover"
+exec = "echo {{request_b64}}"
+exec_allow_from = "owner"
+`, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Commands) != 1 || cfg.Commands[0].ExecAllowFrom != "owner" {
+		t.Fatal("scoped grant not decoded")
+	}
+	var out strings.Builder
+	if err := toml.NewEncoder(&out).Encode(cfg); err != nil {
+		t.Fatal(err)
+	}
+	var again Config
+	if _, err := toml.Decode(out.String(), &again); err != nil {
+		t.Fatal(err)
+	}
+	if again.Commands[0].ExecAllowFrom != "owner" {
+		t.Fatal("grant lost on config save")
+	}
+}

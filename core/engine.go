@@ -1137,8 +1137,8 @@ func (e *Engine) GetSessions() *SessionManager {
 }
 
 // AddCommand registers a custom slash command.
-func (e *Engine) AddCommand(name, description, prompt, exec, workDir, source string) {
-	e.commands.Add(name, description, prompt, exec, workDir, source)
+func (e *Engine) AddCommand(name, description, prompt, exec, workDir, source string, execAllowFrom ...string) {
+	e.commands.Add(name, description, prompt, exec, workDir, source, execAllowFrom...)
 }
 
 // ClearCommands removes all commands from the given source.
@@ -14740,7 +14740,13 @@ func (e *Engine) renderHeartbeatCard() *Card {
 // ──────────────────────────────────────────────────────────────
 
 func (e *Engine) executeCustomCommand(p Platform, msg *Message, cmd *CustomCommand, args []string) {
-	if cmd.Exec != "" && !e.isAdmin(msg.UserID) {
+	allowed := e.isAdmin(msg.UserID)
+	if cmd.ExecAllowFrom != "" {
+		// A fixed-command grant does not grant /shell or other admin powers.
+		// Wildcards are deliberately rejected for this narrow allowlist.
+		allowed = cmd.ExecAllowFrom != "*" && msg.UserID != "" && AllowList(cmd.ExecAllowFrom, msg.UserID)
+	}
+	if cmd.Exec != "" && !allowed {
 		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgAdminRequired), "/"+cmd.Name))
 		return
 	}
@@ -14789,7 +14795,7 @@ func (e *Engine) executeShellCommand(p Platform, msg *Message, cmd *CustomComman
 	)
 
 	// Expand placeholders in exec command
-	execCmd := ExpandPrompt(cmd.Exec, args)
+	execCmd := ExpandExecCommand(cmd.Exec, args, msg)
 
 	// Determine working directory
 	workDir := cmd.WorkDir

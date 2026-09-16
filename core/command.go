@@ -1,6 +1,8 @@
 package core
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -12,12 +14,13 @@ import (
 
 // CustomCommand represents a registered slash command (from config or agent command files).
 type CustomCommand struct {
-	Name        string // command name without leading "/"
-	Description string
-	Prompt      string // template with {{1}}, {{2}}, {{2*}}, {{args}} placeholders
-	Exec        string // shell command to execute (mutually exclusive with Prompt)
-	WorkDir     string // optional: working directory for exec command
-	Source      string // "config" or "agent" (for display)
+	Name          string // command name without leading "/"
+	Description   string
+	Prompt        string // template with {{1}}, {{2}}, {{2*}}, {{args}} placeholders
+	Exec          string // shell command to execute (mutually exclusive with Prompt)
+	WorkDir       string // optional: working directory for exec command
+	ExecAllowFrom string // optional: exact users allowed to run this fixed exec command, instead of project admins
+	Source        string // "config" or "agent" (for display)
 }
 
 // CommandRegistry holds all available custom commands and resolves agent command files.
@@ -34,16 +37,21 @@ func NewCommandRegistry() *CommandRegistry {
 }
 
 // Add registers a custom command.
-func (r *CommandRegistry) Add(name, description, prompt, exec, workDir, source string) {
+func (r *CommandRegistry) Add(name, description, prompt, exec, workDir, source string, execAllowFrom ...string) {
+	allow := ""
+	if len(execAllowFrom) > 0 {
+		allow = strings.TrimSpace(execAllowFrom[0])
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.commands[strings.ToLower(name)] = &CustomCommand{
-		Name:        name,
-		Description: description,
-		Prompt:      prompt,
-		Exec:        exec,
-		WorkDir:     workDir,
-		Source:      source,
+		Name:          name,
+		Description:   description,
+		Prompt:        prompt,
+		Exec:          exec,
+		WorkDir:       workDir,
+		ExecAllowFrom: allow,
+		Source:        source,
 	}
 }
 
@@ -241,4 +249,19 @@ func ExpandPrompt(template string, args []string) string {
 	})
 
 	return result
+}
+
+// ExpandExecCommand offers a data-only transport for security-sensitive scripts.
+// With request_b64 present, no user argument is interpolated as shell source.
+// Scripts must still validate the decoded arguments and authorise the sender.
+func ExpandExecCommand(template string, args []string, msg *Message) string {
+	if !strings.Contains(template, "{{request_b64}}") {
+		return ExpandPrompt(template, args)
+	}
+	payload, _ := json.Marshal(struct {
+		Args       []string `json:"args"`
+		SessionKey string   `json:"session_key"`
+		UserID     string   `json:"user_id"`
+	}{args, msg.SessionKey, msg.UserID})
+	return strings.ReplaceAll(template, "{{request_b64}}", base64.StdEncoding.EncodeToString(payload))
 }

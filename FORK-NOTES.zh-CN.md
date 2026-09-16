@@ -17,7 +17,7 @@
 
 ## 已知限制
 
-- 未解决桌面端与 cc-connect 同时接管同一 Codex 任务时的 `already has an active writer` 冲突。不要删除锁文件；本机验证过的临时交接方式是等待任务结束后归档再恢复，恢复后不重新打开桌面任务就回手机续聊。
+- 不支持桌面与 cc-connect 同时写入同一任务。`/unlock` 可自动执行单任务归档再恢复、验证释放后交给手机；依赖本机可访问的中文桌面控件，详见部署文档。手机接管后不要在桌面重新打开该任务，也不要删除锁文件。
 - SQLite 修复依赖当前 Codex 的 `state_5.sqlite` / `threads.source` 内部结构，不是稳定公开接口；Codex 更新后需要重新验证。
 - 改为 `backend = "app_server"` 不代表复用桌面现有服务，不能保证消除写入冲突。
 
@@ -34,3 +34,15 @@ go test ./agent/codex ./platform/weixin ./platform/telegram -count=1
 - 默认 `go test ./...` 未通过：缺少 Web 前端 `dist` 产物、部分测试依赖 Unix 命令/脚本或符号链接行为，且一次依赖下载超时；不能视为全量测试通过。
 
 - 个人部署补充验证：PowerShell 7 / Windows PowerShell 5.1 离线脚本检查、临时目录编译及命令参数定向测试通过。`config` 包另有两项既有 Windows 路径测试失败（HOME 与 USERPROFILE、路径分隔符差异），未修改这些无关测试。
+
+## Windows `/unlock`：由诊断升级为单任务交接
+
+`deploy/personal/unlock.py` 与 `unlock-desktop.ps1` 通过原生 Windows UI Automation 归档再恢复目标任务，验证实际锁释放且原后端身份不变；没有强杀兜底、私有 IPC 伪造或数据库写入。旧确认码拒绝执行。复用自定义 exec 命令和 `{{request_b64}}` 数据封装、`exec_allow_from` 单命令白名单，不开放通用管理员权限。
+
+仅操作当前聊天绑定、项目匹配、唯一名称、未置顶且空闲的目标。持久恢复记录支持归档成功但恢复失败后再次 `/unlock` 恢复；不确定时明确失败。两个脚本需安装在同一目录。细节及限制见 `deploy/personal/README.zh-CN.md`。
+
+Hana 的 `/rc` 与 `/exitrc` 通过共享桌面引擎管理桥接附着关系；本实现不是该架构移植，也不承诺双端同时输入。当前 Codex 外部协同接口未提供本机所需的单任务释放入口，因此使用已验证的原生界面交接。
+
+13 项 Python 回归通过；原始报错任务实测归档、恢复、锁释放成功，后端 PID 与创建时间保持不变。没有结束真实 Codex 进程，未宣称真实 Telegram 重发链路已验收。
+
+此前定向 Go 测试和全部 CUJ 已通过。Windows 下 `go test ./core ./config` 的 6 个路径/HOME 相关失败，用 HEAD 原代码 overlay 复测同样失败；未把变更标为全套测试通过。

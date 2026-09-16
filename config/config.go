@@ -604,11 +604,12 @@ type AliasConfig struct {
 
 // CommandConfig defines a user-customizable slash command that expands a prompt template or executes a shell command.
 type CommandConfig struct {
-	Name        string `toml:"name"`
-	Description string `toml:"description"`
-	Prompt      string `toml:"prompt"`   // prompt template (mutually exclusive with Exec)
-	Exec        string `toml:"exec"`     // shell command to execute (mutually exclusive with Prompt)
-	WorkDir     string `toml:"work_dir"` // optional: working directory for exec command
+	Name          string `toml:"name"`
+	Description   string `toml:"description"`
+	Prompt        string `toml:"prompt"`                    // prompt template (mutually exclusive with Exec)
+	Exec          string `toml:"exec"`                      // shell command to execute (mutually exclusive with Prompt)
+	WorkDir       string `toml:"work_dir"`                  // optional: working directory for exec command
+	ExecAllowFrom string `toml:"exec_allow_from,omitempty"` // optional exact user IDs for this command only; no wildcard
 }
 
 type LogConfig struct {

@@ -16208,3 +16208,17 @@ func TestProcessInteractiveEvents_StreamingCard_BareNoReply_Suppressed(t *testin
 		t.Fatalf("silent reply leaked NO_REPLY into the streaming card: %q", card.finalContent())
 	}
 }
+
+func TestEngine_ScopedExecDenyAllFallback(t *testing.T) {
+	for _, allow := range []string{"", "   ", "*", "someone-else"} {
+		t.Run(allow, func(t *testing.T) {
+			e := newTestEngine()
+			e.AddCommand("recover", "", "", "echo NOT_ALLOWED", "", "config", allow)
+			p := &stubPlatformEngine{n: "test"}
+			e.handleCommand(p, &Message{SessionKey: "test:owner", UserID: "owner", ReplyCtx: "ctx"}, "/recover")
+			if got := p.getSent(); len(got) != 1 || !strings.Contains(got[0], "admin") {
+				t.Fatalf("unsafe grant: %v", got)
+			}
+		})
+	}
+}

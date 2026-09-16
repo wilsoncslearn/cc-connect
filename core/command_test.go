@@ -1,8 +1,12 @@
 package core
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -268,5 +272,32 @@ func TestAllowList(t *testing.T) {
 		if got != tt.expect {
 			t.Errorf("AllowList(%q, %q) = %v, want %v", tt.allow, tt.user, got, tt.expect)
 		}
+	}
+}
+
+// Recovery commands must receive user input as data, never as shell source.
+func TestExpandExecCommand_RequestBase64(t *testing.T) {
+	msg := &Message{SessionKey: "telegram:1:2", UserID: "2"}
+	for _, args := range [][]string{nil, {"confirm", "$(whoami); & evil", "'\"`", "中文"}} {
+		got := ExpandExecCommand("python recovery.py --request-b64 {{request_b64}}", args, msg)
+		encoded := strings.TrimPrefix(got, "python recovery.py --request-b64 ")
+		raw, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var req struct {
+			Args       []string `json:"args"`
+			SessionKey string   `json:"session_key"`
+			UserID     string   `json:"user_id"`
+		}
+		if err := json.Unmarshal(raw, &req); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(req.Args, args) || req.SessionKey != msg.SessionKey || req.UserID != msg.UserID {
+			t.Fatalf("request mismatch: %+v", req)
+		}
+	}
+	if got := ExpandExecCommand("echo {{args}}", []string{"hello"}, msg); got != "echo hello" {
+		t.Fatal(got)
 	}
 }

@@ -2443,3 +2443,44 @@ func TestCUJ_H4_FeishuTopicsKeepWorkspaceBindingsIsolated(t *testing.T) {
 		t.Fatalf("topic B changed after topic A unbind: %q", got)
 	}
 }
+
+// Fixed recovery commands work while the task is busy, without opening admin
+// shell access or starting an Agent. Malicious arguments remain encoded data.
+func TestCUJ_A9_ScopedExecWhileBusy(t *testing.T) {
+	env := newCUJEnv(t)
+	defer env.engine.cancel()
+	env.engine.AddCommand("recover", "", "", "echo {{request_b64}}", env.tempDir, "config", "owner")
+	session := env.engine.sessions.GetOrCreateActive("test:owner")
+	if !session.TryLock() {
+		t.Fatal("failed to simulate busy task")
+	}
+	defer session.Unlock()
+
+	env.userSends("stranger", "/recover")
+	if !env.sentContains("admin") {
+		t.Fatal("unlisted user was not rejected")
+	}
+
+	env.userSends("owner", "/recover")
+	expected := ExpandExecCommand("{{request_b64}}", []string{}, &Message{SessionKey: "test:owner", UserID: "owner"})
+	env.waitFor("diagnostic command output", 5*time.Second, func() bool { return env.sentContains(expected) })
+
+	env.userSends("owner", "/recover confirm '; echo INJECTED'")
+	expectedConfirm := ExpandExecCommand("{{request_b64}}", []string{"confirm", "; echo INJECTED"}, &Message{SessionKey: "test:owner", UserID: "owner"})
+	env.waitFor("confirmation data output", 5*time.Second, func() bool { return env.sentContains(expectedConfirm) })
+	if env.sentContains("INJECTED") {
+		t.Fatal("arguments were interpreted as shell source")
+	}
+
+	before := len(env.plat.getSent())
+	env.userSends("owner", "/shell echo UNEXPECTED")
+	sent := env.plat.getSent()
+	if len(sent) <= before || !strings.Contains(sent[len(sent)-1], "admin") {
+		t.Fatal("fixed exec grant opened admin shell")
+	}
+	env.agent.mu.Lock()
+	defer env.agent.mu.Unlock()
+	if env.agent.nextID != 0 {
+		t.Fatal("recovery started an Agent session")
+	}
+}
