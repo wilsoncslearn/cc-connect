@@ -40,6 +40,12 @@
 </p>
 
 
+## Personal fork: deployment and shared desktop / Telegram tasks
+
+This fork includes WeChat reply fixes, a Codex desktop task-visibility compatibility fix, and a Windows deployment template with YOLO enabled. Build this fork to include its fixes. Sharing tasks requires cc-connect and the desktop app to use the same local Codex data directory; it does **not** sync history between computers or allow concurrent writers on one task.
+
+See the [personal deployment and verification guide (中文)](./deploy/personal/README.zh-CN.md) and [fork notes (中文)](./FORK-NOTES.zh-CN.md). Existing history migration and the archive/unarchive writer-release workaround are not automated.
+
 ## ❤️ Sponsor
 
 > Want to appear here? Contact: chg80333@gmail.com | WeChat: mongorz
